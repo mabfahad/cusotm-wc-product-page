@@ -1,87 +1,125 @@
-(function($){
-    "use strict";
+document.querySelectorAll('.rating[data-rating]').forEach(function (el) {
+    const rating = parseFloat(el.getAttribute('data-rating'));
+    const percent = (rating / 5) * 100;
+    el.querySelector('.stars').style.setProperty('--rating-percent', percent);
+});
 
-    $(function () {
+(function ($) {
+    "use strict";
+    $(document).ready(function () {
+
         const $featured = $('#featured');
         const $thumbs = $('.thumb');
         const $dots = $('.dot');
         let currentIndex = 0;
 
-        function changeImage($el) {
-            const src = $el.data('large') || $el.attr('src');
-            $featured.attr('src', src);
+        function changeImage(element) {
+            const largeSrc = $(element).data('large') || $(element).attr('src');
+            $featured.attr('src', largeSrc);
             $thumbs.removeClass('active');
-            $el.addClass('active');
-            currentIndex = $thumbs.index($el);
+            $(element).addClass('active');
+            currentIndex = $thumbs.index(element);
             activateDot(currentIndex);
         }
 
         function activateDot(index) {
-            $dots.removeClass('active').eq(index).addClass('active');
+            $dots.removeClass('active');
+            if ($dots.eq(index).length) {
+                $dots.eq(index).addClass('active');
+            }
         }
 
-        $thumbs.on('click', function() {
-            changeImage($(this));
+        // Thumbnail click
+        $thumbs.each(function (idx, thumb) {
+            $(thumb).on('click', function () {
+                changeImage(thumb);
+            });
         });
 
-        $dots.on('click', function() {
-            changeImage($thumbs.eq($(this).index()));
+        // Dot click
+        $dots.each(function (idx, dot) {
+            $(dot).on('click', function () {
+                changeImage($thumbs.get(idx));
+            });
         });
 
-        $('.prev').on('click', function() {
-            currentIndex = (currentIndex - 1 + $thumbs.length) % $thumbs.length;
-            changeImage($thumbs.eq(currentIndex));
-        });
+        // Prev button
+        const $prevBtn = $('.prev');
+        if ($prevBtn.length) {
+            $prevBtn.on('click', function () {
+                currentIndex = (currentIndex - 1 + $thumbs.length) % $thumbs.length;
+                changeImage($thumbs.get(currentIndex));
+            });
+        }
 
-        $('.next').on('click', function() {
-            currentIndex = (currentIndex + 1) % $thumbs.length;
-            changeImage($thumbs.eq(currentIndex));
-        });
+        // Next button
+        const $nextBtn = $('.next');
+        if ($nextBtn.length) {
+            $nextBtn.on('click', function () {
+                currentIndex = (currentIndex + 1) % $thumbs.length;
+                changeImage($thumbs.get(currentIndex));
+            });
+        }
 
+        // Initialize first dot as active
         activateDot(currentIndex);
 
         function setPlan(plan) {
-            $('#singleDrinkSections').toggle(plan === 'single');
-            $('#doubleDrinkSections').toggle(plan === 'double');
+            $('#singleDrinkSections').css('display', plan === 'single' ? 'block' : 'none');
+            $('#doubleDrinkSections').css('display', plan === 'double' ? 'block' : 'none');
             $('#singlePlan').prop('checked', plan === 'single');
             $('#doublePlan').prop('checked', plan === 'double');
         }
 
-        $('#singlePlan').on('change', () => setPlan('single'));
-        $('#doublePlan').on('change', () => setPlan('double'));
+        const $singlePlan = $('#singlePlan');
+        const $doublePlan = $('#doublePlan');
 
-        // Initialize subscription sections
-        setPlan('single');
-
-        // Update rating stars fill
-        $('.rating[data-rating]').each(function() {
-            const rating = parseFloat($(this).data('rating'));
-            const percent = (rating / 5) * 100;
-            $(this).find('.stars').css('--rating-percent', percent + '%');
+        $singlePlan.on('change', function () {
+            setPlan('single');
+        });
+        $doublePlan.on('change', function () {
+            setPlan('double');
         });
 
-        // When flavor changes, check related plan radio & call setPlan
-        $('input[name="flavor-single"]').on('change', function () {
-            const $subscription = $(this).closest('.subscription');
-            const $planRadio = $subscription.find('input[name="plan"]');
+        // Initialize subscription sections
+        $('#singleDrinkSections').show();
+        $('#doubleDrinkSections').hide();
+        $singlePlan.prop('checked', true);
+        $doublePlan.prop('checked', false);
+
+        $('input[type="radio"][name="flavor-single"]').on('change', function () {
+            // Find the closest .subscription block
+            var $subscription = $(this).closest('.subscription');
+
+            // Find the plan radio inside that block
+            var $planRadio = $subscription.find('input[type="radio"][name="plan"]');
+
+            // If not already checked, check it and trigger the onclick
             if (!$planRadio.prop('checked')) {
                 $planRadio.prop('checked', true);
-                setPlan('single');
+
+                // Trigger the onclick manually
+                if (typeof setPlan === 'function') {
+                    setPlan('single');
+                }
             }
         });
 
-        // Log grouped product ID on plan change
+        // When a plan radio button is selected
         $('input[name="plan"]').on('change', function () {
-            console.log('Selected Grouped Product ID:', $('input[name="plan"]:checked').data('grouped-id'));
+            var groupedId = $('input[name="plan"]:checked').data('grouped-id');
+            console.log('Selected Grouped Product ID:', groupedId);
+
+            // You can now use groupedId for further logic (e.g., AJAX, UI updates, etc.)
         });
 
-        // AJAX add to cart
-        $('.add-to-cart').on('click', function (e) {
+
+        $('.add-to-cart').click(function (e) {
             e.preventDefault();
+            var variation = $('input[name="flavor-single"]:checked').data('variation-id');
+            var grouped_product_id = $('input[name="plan"]:checked').data('grouped-id');
 
-            const variation = $('input[name="flavor-single"]:checked').data('variation-id');
-            const grouped_product_id = $('input[name="plan"]:checked').data('grouped-id');
-
+            //Ajax
             $.ajax({
                 url: wc_custom_params.ajax_url,
                 type: 'POST',
@@ -91,26 +129,23 @@
                     product_id: grouped_product_id,
                     nonce: wc_custom_params.nonce
                 },
-                beforeSend() {
+                beforeSend: function () {
                     $('.add-to-cart').text('Please wait...');
                 },
-                success(res) {
+                success: function (res) {
                     if (res.success) {
-                        $('.add-to-cart').text('Added!').delay(1000).fadeOut(600, function() {
+                        $('.add-to-cart').text('Added!').delay(1000).fadeOut(600, function () {
                             $(this).text('Add to Cart').fadeIn(200);
                         });
-                        $(document.body).trigger('added_to_cart');
+                        // Optional: update cart icon/fragment
                     } else {
-                        alert(res.data?.message || 'Failed to add to cart');
+                        alert(res.data.message || 'Failed to add to cart');
                         $('.add-to-cart').text('Add to Cart');
                     }
-                },
-                error() {
-                    alert('Server error.');
-                    $('.add-to-cart').text('Add to Cart');
                 }
-            });
-        });
 
-    });
+            });
+
+        });
+    })
 })(jQuery);

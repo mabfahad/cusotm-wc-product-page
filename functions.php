@@ -53,13 +53,18 @@ add_action('wp_enqueue_scripts', 'twentytwentyfive_child_enqueue_styles');
 add_filter( 'template_include', 'force_single_product_template' );
 function force_single_product_template( $template ) {
     if ( is_singular( 'product' ) ) {
-        $custom_template = locate_template( 'woocommerce/single-product.php' );
-        if ( $custom_template ) {
-            return $custom_template;
+        global $post;
+        $product = wc_get_product( $post->ID );
+        if ( $product && $product->is_type( 'grouped' ) ) {
+            $custom_template = locate_template( 'woocommerce/single-product.php' );
+            if ( $custom_template ) {
+                return $custom_template;
+            }
         }
     }
     return $template;
 }
+
 
 // Show checkbox in variation settings using custom HTML
 add_action( 'woocommerce_variation_options', function( $loop, $variation_data, $variation ) {
